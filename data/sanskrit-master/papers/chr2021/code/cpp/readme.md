@@ -1,1 +1,0 @@
-Code was compiled with Visual Studio 2017, Community edition, Version 15.7.3.

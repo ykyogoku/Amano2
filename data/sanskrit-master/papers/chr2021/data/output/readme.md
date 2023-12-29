@@ -1,1 +1,0 @@
-This directory will contain the output of the sampler.
