@@ -11,9 +11,14 @@ from configparser import ConfigParser
 import conllu
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+import seaborn as sns
+from pylab import savefig
+from statistics import mean
+from matplotlib import pyplot as plt
 
 os.chdir('/home/yuki/Dropbox/Arbeit/20181016_古代インド文献成立過程解明への文体計量分析及びデータ可視化の利用/20231218_Workshop/git/Amano2/')
 
+# TODO: include chapter and lemma200.
 def main():
     config = ConfigParser()
     config.read('src/config.ini')
@@ -115,6 +120,7 @@ def main():
                 compared_1, compared_2 = row
                 comparison_name = '-'.join([compared_1, compared_2])
                 comparison[model][div][comparison_name] = {}
+                # comparison[model][div][comparison_name] = pd.DataFrame()
                 comp_temp_1 = {}
                 comp_temp_2 = {}
                 for key, value in embeddings[model][div].items():
@@ -122,15 +128,35 @@ def main():
                         comp_temp_1[key] = value
                     if compared_2 in key:
                         comp_temp_2[key] = value
-                for c_1 in comp_temp_1.keys():
-                    for c_2 in comp_temp_2.keys():
-                        c_name = '-'.join([c_1, c_2])
-                        vec1 = comp_temp_1[c_1].reshape(1, -1)
-                        vec2 = comp_temp_2[c_2].reshape(1, -1)
-                        comparison[model][div][comparison_name][c_name] = cosine_similarity(vec1, vec2)[0][0]
-                        print(comparison[model][div][comparison_name][c_name])
+                for c1 in comp_temp_1.keys():
+                    for c2 in comp_temp_2.keys():
+                        # c_name = '-'.join([c_1, c_2])
+                        vec1 = comp_temp_1[c1].reshape(1, -1)
+                        vec2 = comp_temp_2[c2].reshape(1, -1)
+                        comparison[model][div][comparison_name][(c1, c2)] = cosine_similarity(vec1, vec2)[0][0]
+                        # print(comparison[model][div][comparison_name][(c1, c2)])
 
-    # next todo: export similarity values as tsv.
+                # export similarity datasets
+                # similarity_avg = mean(comparison[model][div][comparison_name].values())
+                data_expo = [(key[0], key[1], value) for key, value in comparison[model][div][comparison_name].items()]
+                df_expo = pd.DataFrame(data_expo, columns=['c1', 'c2', 'value'])
+                # df_pivot = df_expo.pivot(index='c1', columns='c2')['value']
+                df_pivot = df_expo.pivot(index='c1', columns='c2', values='value')
+                folder_path = '/'.join(['output', model, div, comparison_name])
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path)
+                df_path = '/'.join([folder_path, 'similarity.tsv'])
+                df_pivot.to_csv(df_path, sep='\t')
+
+                # generate and export heatmaps
+                fig = plt.figure()
+                figure_path = '/'.join([folder_path, 'heatmap.png'])
+                ax = sns.heatmap(df_pivot)
+                ax.figure.tight_layout()
+                plt.savefig(figure_path)
+                plt.close()
+
+
 
 if __name__ == '__main__':
     main()
