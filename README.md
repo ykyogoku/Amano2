@@ -10,3 +10,9 @@ The corpuse is devided with the following units:
 - Transformers (Which model?)
 ### Texts to be compared
 There are 12 kinds of texts, which are to be clarifed.
+
+### TODO
+- adding chapter
+- adding statistics like avg. tokens/sentence, distribution of words, etc.
+- texts to be comapred.
+- adding model names.
