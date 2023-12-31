@@ -1,219 +1,152 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Dec 26 21:42:25 2021
-
-@author: yuki
-"""
 import os
-import conllu
-# import pyconll
+from gensim.models import Word2Vec
 import pandas as pd
-from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-from tqdm import tqdm
-from simcse import SimCSE
+from sentence_transformers import SentenceTransformer
+import conllu
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+import seaborn as sns
+from pylab import savefig
+from statistics import mean
+from matplotlib import pyplot as plt
 
-def Type_Process(file_paths, input_type):
-    if input_type == 'plain':
-        chapter = process_plain(file_paths)
-    else:
-        chapter = Shared_Fucntion(file_paths, input_type)
+def load_training_dataset(config):
+    files_excluded = []
+    with open(config['paths']['files_excluded'], 'r') as f:
+        files_excluded = [line.strip() for line in f.readlines()]
 
-    return chapter
+    filelist = []
+    for root, dirs, files in os.walk(config['paths']['training_path']):
+        if os.path.basename(root) in files_excluded:
+            continue
+        for file in files:
+            file_name, extension = os.path.splitext(file)
+            if 'conllu' in extension:
+                filelist.append(os.path.join(root,file_name))
 
-def process_plain(file_paths):
-    text_conllu = dict()
-    texts = file_paths['target_folders'].split(',')
-    for t in texts:
-        folder_path = file_paths['target_dir'] + t
-        for filename in os.listdir(folder_path):
-            if filename.endswith(".conllu_parsed"):
-                # if the file ends with ".conllu_parsed", load it using conllu library
-                with open(os.path.join(folder_path, filename), "r", encoding="utf-8") as f:
-                    data = f.read()
-                # parse the data using conllu
-                text_conllu[filename.split('-')[2]] = conllu.parse(data)
-
-    # concatenate the sentences.
-    text_conllu = {k: v for k, v in text_conllu.items() if v}
-    chapter = dict()
-    for k, v in text_conllu.items():
-        chapter[k] = str()
-        for sent in text_conllu[k]:
-            if len(sent) > 0 and isinstance(sent, conllu.models.TokenList):
-                chapter[k] += sent.metadata['text'] + '. '
-
-    return chapter
-
-def Shared_Fucntion(file_paths, input_type):
-    texts = file_paths['target_folders'].split(',')
-    chapter = {}
-    for t in texts:
-        folder_path = file_paths['target_dir'] + t
-        for filename in os.listdir(folder_path):
-            if filename.endswith(".conllu_parsed"):
-                key = filename.split('-')[2]
-                chapter[key] = str()
-                with open(os.path.join(folder_path, filename), "r", encoding="utf-8") as f:
-                    data = f.read()
-                if '\t\t' in data:
-                    data = data.replace('\t\t', '\t_\t')
-                conll = pyconll.load_from_string(data)
-                for sentence in conll:
-                    sent = str()
-                    for token in sentence:
-                        if input_type == 'no-sandhi':
-                            if len(token.misc) > 0:
-                                sent += list(token.misc['Unsandhied'])[0] + ' '
-                        elif input_type == 'lemma':
-                            if isinstance(token.lemma, str):
-                                sent += token.lemma + ' '
-                    if len(sent) > 0:
-                        sent += '.'
-                    sent = sent.replace(' .', '. ')
-                    chapter[key] += sent
-
-    chapter = {k: v for k, v in chapter.items() if v != ''}
-    return chapter
-
-def create_transformer_embedding(chapter, target, model):
-    embedding = dict()
-    for k, v in chapter.items():
-        embedding[k] = model.encode(v)
-
-    # extract MS chapters in the list of target chapters.
-    MS = dict()
-    for ch, emb in embedding.items():
-        if ch in target.index:
-            MS[ch] = emb
-    MS = pd.DataFrame.from_dict(MS).transpose()
-
-    # remove MS chapters from the dict embedding.
-    cmp_chapters = {key: value for key, value in embedding.items() if 'MS' not in key}
-    cmp_chapters = pd.DataFrame.from_dict(cmp_chapters).transpose()
-
-    return MS, cmp_chapters
-
-def Evaluator(top_chapters, target_chapters):
-    """
-    :param top_chapters:
-    :param target_chapters:
-    :return: precision, recall, F1
-    """
-    TP = 0
-    FN = 0
-    TP_FP = 0
-    for index, row in top_chapters.iterrows():
-        if index in target_chapters.index:
-            chap_temp = target_chapters.loc[index].dropna()
-            top_list = [j[0] for j in row]
-            TP_FP += len(top_list)
-            if len(chap_temp) <= 1:
-                if chap_temp[1] in top_list:
-                    TP += 1
-                else:
-                    FN += 1
-            else:
-                for chap in chap_temp:
-                    if chap in top_list:
-                        TP += 1
-                    else:
-                        FN += 1
-    precision = TP / TP_FP
-    recall = TP / (TP + FN)
-    F1 = 2 * (precision * recall) / (precision + recall)
-    return precision, recall, F1
-
-
-def Create_Embedding_Doc2Vec(chapter, target, key):
-
-    # create tagged texts
-    training_docs = []
-    for k, v in chapter.items():
-        tags = [k]
-        sentence = v
-        words = sentence.split(' ')
-        training_docs.append(TaggedDocument(words, tags))
-        
-        
-    print('Generating model')
-    # hyperparameter
-    # https://arxiv.org/pdf/1607.05368.pdf
-
-    # config
-    vector_size = 300
-    epoch_num = 1000
-    # PV-DM: 1, PV-DBOW: 0
-    dm = 1
-
-    model_path = f'./model/doc2vec_{key}.model'
-    if os.path.exists(model_path):
-        model = Doc2Vec.load(f'./model/doc2vec_{key}.model')
-
-    else:
-        model = Doc2Vec(documents=training_docs, dm=1, vector_size=vector_size, alpha=0.025, min_alpha=0.025, window=5, min_count=1)
-    
-        for epoch in tqdm(range(epoch_num)):
-            model.train(training_docs, total_examples=model.corpus_count, epochs=model.epochs)
-            model.alpha -= (0.025 - 0.0001) / (epoch_num  - 1)
-            model.min_alpha = model.alpha
-
-        model_name = f'./model/doc2vec_{key}.model'
-        print('Saved model', model_name)
-        model.save(model_name)
-
-
-    # embedding
-    embedding = dict()
-    for k, v in chapter.items():
-        embedding[k] = model.infer_vector(v.split(' '))
-
-    # extract MS chapters in the list of target chapters.
-    MS = dict()
-    for ch, emb in embedding.items():
-        if ch in target.index:
-            MS[ch] = emb
-    MS = pd.DataFrame.from_dict(MS).transpose()
-
-    # remove MS chapters from the dict embedding.
-    cmp_chapters = {key: value for key, value in embedding.items() if 'MS' not in key}
-    cmp_chapters = pd.DataFrame.from_dict(cmp_chapters).transpose()
-
-    return MS, cmp_chapters
-
-    return(model)
-
-# This function should be modified.
-def Create_Chapters_Vectors(target_dir, model):
-    content = Clean_File(target_dir)
-    lines = content.split(sep='\n')
-
-    cnt = 0
-    chapters = {}
-    line_str = str()
-    key_name = str()
-    for line in lines:
-        if 'chapter_id' in line:
-            if key_name != '':
-                chapters[key_name] = line + '\n' + line_str
-                line_str = str()
-            key_name = lines[cnt - 1].split(': ')[1]
-        else:
-            line_str += line + '\n'
-        cnt += 1
-
-    vectors = {}
-    vocab_list = list(model.wv.vocab)
-    for i, chapter in chapters.items():
-        corpus = pyconll.load_from_string(chapter)
-        cnt = 0
-        vectors[i] = 0
-        for j, sentence in enumerate(corpus):
+    # extract unique file names.
+    filelist = list(set(filelist))
+    sents = []
+    token_cnt = 0
+    for f in filelist:
+        file_ext = f + '.conllu'
+        print(os.path.basename(f))
+        while True:
+            try:
+                data = open(file_ext, mode='r', encoding='utf-8')
+                break
+            except FileNotFoundError:
+                print('No such file or directory')
+                file_ext = f + '.conllu_parsed'
+                # data = open(file_ext, mode='r', encoding='utf-8')
+        sentences = conllu.parse(data.read())
+        for sentence in sentences:
+            s = []
             for token in sentence:
-                if token.lemma in vocab_list:
-                    vectors[i] += model[token.lemma]
-                    cnt += 1
-        if i != 0:
-            vectors[i] = vectors[i] / cnt
+                s.append(token['lemma'])
+                token_cnt += 1
+            sents.append(s)
 
-    return vectors
+    # show staticstics about the traning corpus
+    print('The nubmer of documents: ', len(filelist))
+    print('Avg. sentences/document: ', len(sents)/len(filelist))
+    print('Avg. tokens/sentence: ', token_cnt/len(sents))
+
+    return sents
+
+def create_embeddings(config, sents):
+    # Create a model
+    # default size = 100, default windows = 5, default min_count=5, sg is Training algorithm 1 for skip-gram; otherwise CBOW.
+    w2v_model = Word2Vec(sents, workers=4, sg=1)
+    trans_model = SentenceTransformer(config['strings']['model_name'])
+
+    # Show similar words with the paramater. Default measure is Cosine Similarity
+    # print(w2v_model.wv.most_similar('keśa'))
+
+    # load files names to be processed.
+    file_path = {}
+    for key in config['evaluation']:
+        # print(key)
+        file_path[key] = []
+        for root, dirs, files in os.walk(config['evaluation'][key]):
+            for file in files:
+                file_path[key].append(root + file)
+
+    # Create embeddings
+    embeddings = {'word2vec': {}, 'transformers': {}}
+    vocab_list = list(w2v_model.wv.index_to_key)
+    for k, v in file_path.items():
+        embeddings['word2vec'][k] = {}
+        embeddings['transformers'][k] = {}
+        for file in v:
+            print(file)
+            df = pd.read_csv(file, sep=',')
+            for i, row in df.iterrows():
+                sent = row['lemma'].split(' ')
+                cnt = 0
+                embedding_temp = 0
+                for token in sent:
+                    if token in vocab_list:
+                        embedding_temp += w2v_model.wv[token]
+                        cnt += 1
+                if cnt == 0:
+                    print('The following devision does not contain any word in the trained model.')
+                    print(file, row['index'])
+                else:
+                    embeddings['word2vec'][k][row['index']] = embedding_temp/cnt
+                embeddings['transformers'][k][row['index']] = trans_model.encode(row['lemma']) # transfomers
+
+    return embeddings
+
+def export_similarity_dataset(comparison, model, div, comparison_name):
+    # similarity_avg = mean(comparison[model][div][comparison_name].values())
+    data_expo = [(key[0], key[1], value) for key, value in comparison[model][div][comparison_name].items()]
+    df_expo = pd.DataFrame(data_expo, columns=['c1', 'c2', 'value'])
+    df_pivot = df_expo.pivot(index='c1', columns='c2', values='value')
+    folder_path = '/'.join(['output', model, div, comparison_name])
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    df_path = '/'.join([folder_path, 'similarity.tsv'])
+    df_pivot.to_csv(df_path, sep='\t')
+
+    return folder_path, df_pivot
+
+def generate_heatmap(folder_path, df_pivot):
+    fig = plt.figure()
+    figure_path = '/'.join([folder_path, 'heatmap.png'])
+    ax = sns.heatmap(df_pivot)
+    ax.figure.tight_layout()
+    plt.savefig(figure_path)
+    plt.close()
+
+def compare_embeddings(config, embeddings):
+    compared_documents = pd.read_csv(config['paths']['compared_documents'], sep='\t', header=None)
+    comparison = {}
+    for model in embeddings.keys():
+        comparison[model] = {}
+        for div in embeddings[model].keys():
+            comparison[model][div] = {}
+            for index, row in compared_documents.iterrows():
+                compared_1, compared_2 = row
+                comparison_name = '-'.join([compared_1, compared_2])
+                comparison[model][div][comparison_name] = {}
+                comp_temp_1 = {}
+                comp_temp_2 = {}
+                for key, value in embeddings[model][div].items():
+                    if compared_1 in key:
+                        comp_temp_1[key] = value
+                    if compared_2 in key:
+                        comp_temp_2[key] = value
+                for c1 in comp_temp_1.keys():
+                    for c2 in comp_temp_2.keys():
+                        vec1 = comp_temp_1[c1].reshape(1, -1)
+                        vec2 = comp_temp_2[c2].reshape(1, -1)
+                        comparison[model][div][comparison_name][(c1, c2)] = cosine_similarity(vec1, vec2)[0][0]
+
+                # export similarity datasets
+                folder_path, df_pivot = export_similarity_dataset(comparison, model, div, comparison_name)
+
+                # generate and export heatmaps
+                generate_heatmap(folder_path, df_pivot)
