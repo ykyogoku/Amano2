@@ -13,6 +13,6 @@ There are 12 kinds of texts, which are to be clarifed.
 
 ### TODO
 - adding chapter
-- adding statistics like avg. tokens/sentence, distribution, etc.
+- adding statistics like avg. tokens/sentence, distribution of words, etc.
 - texts to be comapred.
 - adding model names.
