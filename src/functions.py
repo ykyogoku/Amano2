@@ -56,14 +56,19 @@ def load_training_dataset(config):
 
     return sents
 
-def create_embeddings(config, sents):
-    # Create a model
+def create_w2vmodel(config, sents):
     # default size = 100, default windows = 5, default min_count=5, sg is Training algorithm 1 for skip-gram; otherwise CBOW.
     w2v_model = Word2Vec(sents, workers=4, sg=1)
-    trans_model = SentenceTransformer(config['strings']['model_name'])
-
+    w2v_model.save(config['paths']['model_path'])
     # Show similar words with the paramater. Default measure is Cosine Similarity
     # print(w2v_model.wv.most_similar('keśa'))
+
+    return w2v_model
+
+# def create_embeddings(config, sents):
+def create_embeddings(config, w2v_model):
+    # Create a Transformer model
+    trans_model = SentenceTransformer(config['strings']['model_name'])
 
     # load files names to be processed.
     file_path = {}
@@ -132,8 +137,7 @@ def compare_embeddings(config, embeddings):
                 compared_1, compared_2 = row
                 comparison_name = '-'.join([compared_1, compared_2])
                 comparison[model][div][comparison_name] = {}
-                comp_temp_1 = {}
-                comp_temp_2 = {}
+                comp_temp_1, comp_temp_2 = {}, {}
                 for key, value in embeddings[model][div].items():
                     if compared_1 in key:
                         comp_temp_1[key] = value
@@ -150,3 +154,18 @@ def compare_embeddings(config, embeddings):
 
                 # generate and export heatmaps
                 generate_heatmap(folder_path, df_pivot)
+
+    return comparison
+
+def cal_stat(comparison):
+    for model in comparison.keys():
+        stat_path = '/'.join(['output', model, 'statistics.tsv'])
+        stat = pd.DataFrame(columns=comparison[model].keys())
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        for div in comparison[model].keys():
+            for comp, values in comparison[model][div].items():
+                stat.loc[comp, div] = mean(values.values())
+
+        # export the statistic table.
+        stat.to_csv(stat_path, sep='\t')

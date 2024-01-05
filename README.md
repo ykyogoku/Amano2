@@ -32,3 +32,4 @@ The evaluation dataset is devided with the following units:
 
 ## TODO
 - adding statistics like avg. tokens/sentence, distribution of words, etc.
+- calculate the means of coscine similarity.
