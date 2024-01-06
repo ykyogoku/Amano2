@@ -119,7 +119,7 @@ def export_similarity_dataset(comparison, model, div, comparison_name):
     return folder_path, df_pivot
 
 def generate_heatmap(folder_path, df_pivot):
-    fig = plt.figure()
+    # fig = plt.figure()
     figure_path = '/'.join([folder_path, 'heatmap.png'])
     ax = sns.heatmap(df_pivot)
     ax.figure.tight_layout()
@@ -159,13 +159,22 @@ def compare_embeddings(config, embeddings):
 
 def cal_stat(comparison):
     for model in comparison.keys():
-        stat_path = '/'.join(['output', model, 'statistics.tsv'])
+        path = '/'.join(['output', model])
         stat = pd.DataFrame(columns=comparison[model].keys())
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        if not os.path.exists(path):
+            os.makedirs(path)
         for div in comparison[model].keys():
             for comp, values in comparison[model][div].items():
                 stat.loc[comp, div] = mean(values.values())
 
+                # create a histogram
+                hist_name = '/'.join([path, div, comp]) + '/hist.png'
+                if not os.path.exists(os.path.dirname(hist_name)):
+                    os.makedirs(os.path.dirname(hist_name))
+                plt.hist(values.values())
+                plt.savefig(hist_name)
+                plt.close()
+
         # export the statistic table.
-        stat.to_csv(stat_path, sep='\t')
+        avg_name = '/'.join([path, 'average.tsv'])
+        stat.to_csv(avg_name, sep='\t')
