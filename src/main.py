@@ -4,6 +4,7 @@ from gensim.models import Word2Vec
 from functions import load_training_dataset, create_embeddings, compare_embeddings, create_w2vmodel, cal_stat # When executing this script in console, it should be src/functions
 
 # TODO: include chapter and lemma200.
+# TODO: If the folder is chapter, skip generating heatmap and histogram
 
 def main():
     config = ConfigParser()

@@ -16,7 +16,8 @@
 - [chronbmm/xlm-roberta-vedic](https://huggingface.co/chronbmm/xlm-roberta-vedic) is used as the model for Sanskrit.
 
 ## Evaluation
-See output folder.
+- See _output_ folder.
+- _average.tsv_ is a table whose value refers to the average of cosine similarity. But note that the value in the _chapter_ column does not refer the average, because there is only one value for chapter (or two values, if there are _brāhmaṇa_ and _mantra_.)
 ### Corpus Division
 The evaluation dataset is devided with the following units:
 - chapter (average? and distribution?)
@@ -26,7 +27,7 @@ The evaluation dataset is devided with the following units:
 
 ### Chapters to be compared
 1. MS.1.1 vs. MS.1.6 
-2. MS.1.1 vs. MS.1.7 
+2. MS.1.6 vs. MS.1.7 
 3. MS.1.6 vs. KS.8 
 4. MS.1.7 vs. KS.9.1
 

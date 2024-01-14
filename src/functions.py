@@ -65,7 +65,38 @@ def create_w2vmodel(config, sents):
 
     return w2v_model
 
-# def create_embeddings(config, sents):
+def process_df(df, vocab_list, w2v_model, trans_model, k, embeddings=None):
+    embedding_chap = chap_cnt = 0
+    text_trans = ''
+    is_chapter = (k == 'chapter')
+    for i, row in df.iterrows():
+        sent = row['lemma'].split(' ')
+        cnt = 0
+        embedding_temp = 0
+        for token in sent:
+            if token in vocab_list:
+                embedding_temp += w2v_model.wv[token]
+                cnt += 1
+
+        if is_chapter:
+            embedding_chap += embedding_temp
+            chap_cnt += cnt
+            text_trans += row['lemma'] + ' '
+        else:
+            if cnt == 0:
+                print(file, row['index'], 'is empty, or it does not have any word in the vocab_list.')
+            else:
+                embeddings['word2vec'][k][row['index']] = embedding_temp / cnt
+            embeddings['transformers'][k][row['index']] = trans_model.encode(row['lemma'])  # transfomers
+
+    if is_chapter:
+        if chap_cnt == 0:
+            return None
+        else:
+            return embedding_chap / chap_cnt, text_trans
+    else:
+        return embeddings
+
 def create_embeddings(config, w2v_model):
     # Create a Transformer model
     trans_model = SentenceTransformer(config['strings']['model_name'])
@@ -88,25 +119,21 @@ def create_embeddings(config, w2v_model):
         for file in v:
             print(file)
             df = pd.read_csv(file, sep=',')
-            for i, row in df.iterrows():
-                sent = row['lemma'].split(' ')
-                cnt = 0
-                embedding_temp = 0
-                for token in sent:
-                    if token in vocab_list:
-                        embedding_temp += w2v_model.wv[token]
-                        cnt += 1
-                if cnt == 0:
-                    print('The following devision does not contain any word in the trained model.')
-                    print(file, row['index'])
-                else:
-                    embeddings['word2vec'][k][row['index']] = embedding_temp/cnt
-                embeddings['transformers'][k][row['index']] = trans_model.encode(row['lemma']) # transfomers
+            df.columns = ['index', 'lemma', 'num_words']
+            if k == 'chapter':
+                chap_name = '.'.join(os.path.basename(file).split('.')[:-2])
+                try:
+                    embedding_norm, text_trans = process_df(df, vocab_list, w2v_model, trans_model, k)
+                    embeddings['word2vec'][k][chap_name] = embedding_norm
+                    embeddings['transformers'][k][chap_name] = trans_model.encode(text_trans)
+                except:
+                    print('No chapter-embedding is created for', chap_name)
+            else:
+                embeddings = process_df(df, vocab_list, w2v_model, trans_model, k, embeddings)
 
     return embeddings
 
 def export_similarity_dataset(comparison, model, div, comparison_name):
-    # similarity_avg = mean(comparison[model][div][comparison_name].values())
     data_expo = [(key[0], key[1], value) for key, value in comparison[model][div][comparison_name].items()]
     df_expo = pd.DataFrame(data_expo, columns=['c1', 'c2', 'value'])
     df_pivot = df_expo.pivot(index='c1', columns='c2', values='value')
