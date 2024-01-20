@@ -209,7 +209,7 @@ def t_test(sets, path):
 def cal_stat(comparison):
     for model in comparison.keys():
         path = '/'.join(['output', model])
-        path_stat = '/'.join(['output', 'statistics'])
+        path_stat = '/'.join(['output', model, 'statistics'])
         col_names = [x for x in comparison[model].keys() if x != 'chapter']
         stat = pd.DataFrame(columns=col_names)
         if not os.path.exists(path_stat):
