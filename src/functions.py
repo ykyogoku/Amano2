@@ -5,12 +5,14 @@ from gensim.models import Word2Vec
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 import conllu
+from itertools import combinations
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import seaborn as sns
 from pylab import savefig
 from statistics import mean
 from matplotlib import pyplot as plt
+from scipy.stats import ttest_ind
 
 def load_training_dataset(config):
     files_excluded = []
@@ -180,19 +182,44 @@ def compare_embeddings(config, embeddings):
                 folder_path, df_pivot = export_similarity_dataset(comparison, model, div, comparison_name)
 
                 # generate and export heatmaps
-                generate_heatmap(folder_path, df_pivot)
+                if div != 'chapter':
+                    generate_heatmap(folder_path, df_pivot)
 
     return comparison
+
+def t_test(sets, path):
+    t_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
+    p_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
+    d_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
+    for pair in combinations(sets.keys(), 2):
+        set1 = list(sets[pair[0]].values())
+        set2 = list(sets[pair[1]].values())
+        # t_stat, p_value = ttest_ind(set1, set2)
+        t_stat, p_value = ttest_ind(set1, set2)
+        t_df.loc[pair[0], pair[1]], p_df.loc[pair[0], pair[1]] = t_stat, p_value
+        if p_value < 0.05:
+            d_df.loc[pair[0], pair[1]] = 'different'
+        else:
+            d_df.loc[pair[0], pair[1]] = 'same'
+
+    t_df.to_csv('/'.join([path, 't-statistics.tsv']), sep='\t')
+    p_df.to_csv('/'.join([path, 'p-values.tsv']), sep='\t')
+    d_df.to_csv('/'.join([path, 'stat_different.tsv']), sep='\t')
 
 def cal_stat(comparison):
     for model in comparison.keys():
         path = '/'.join(['output', model])
-        stat = pd.DataFrame(columns=comparison[model].keys())
-        if not os.path.exists(path):
-            os.makedirs(path)
+        path_stat = '/'.join(['output', 'statistics'])
+        col_names = [x for x in comparison[model].keys() if x != 'chapter']
+        stat = pd.DataFrame(columns=col_names)
+        if not os.path.exists(path_stat):
+            os.makedirs(path_stat)
         for div in comparison[model].keys():
+            if div == 'chapter':
+                continue
             for comp, values in comparison[model][div].items():
                 stat.loc[comp, div] = mean(values.values())
+                t_test(comparison[model][div], path_stat)
 
                 # create a histogram
                 hist_name = '/'.join([path, div, comp]) + '/hist.png'
@@ -203,5 +230,5 @@ def cal_stat(comparison):
                 plt.close()
 
         # export the statistic table.
-        avg_name = '/'.join([path, 'average.tsv'])
+        avg_name = '/'.join([path_stat, 'average.tsv'])
         stat.to_csv(avg_name, sep='\t')

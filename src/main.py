@@ -4,7 +4,6 @@ from gensim.models import Word2Vec
 from functions import load_training_dataset, create_embeddings, compare_embeddings, create_w2vmodel, cal_stat # When executing this script in console, it should be src/functions
 
 # TODO: include chapter and lemma200.
-# TODO: If the folder is chapter, skip generating heatmap and histogram
 
 def main():
     config = ConfigParser()
@@ -27,5 +26,4 @@ def main():
     cal_stat(comparison)
 
 if __name__ == '__main__':
-    os.chdir('/home/yuki/Dropbox/Arbeit/20181016_古代インド文献成立過程解明への文体計量分析及びデータ可視化の利用/20231218_Workshop/git/Amano2/')
     main()
