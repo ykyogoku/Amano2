@@ -188,13 +188,10 @@ def compare_embeddings(config, embeddings):
     return comparison
 
 def t_test(sets, path):
-    t_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
-    p_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
-    d_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
+    t_df, p_df, d_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
     for pair in combinations(sets.keys(), 2):
         set1 = list(sets[pair[0]].values())
         set2 = list(sets[pair[1]].values())
-        # t_stat, p_value = ttest_ind(set1, set2)
         t_stat, p_value = ttest_ind(set1, set2)
         t_df.loc[pair[0], pair[1]], p_df.loc[pair[0], pair[1]] = t_stat, p_value
         if p_value < 0.05:
