@@ -188,7 +188,7 @@ def compare_embeddings(config, embeddings):
     return comparison
 
 def t_test(sets, path):
-    t_df, p_df, d_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
+    t_df = p_df = d_df = pd.DataFrame(columns=sets.keys(), index=sets.keys())
     for pair in combinations(sets.keys(), 2):
         set1 = list(sets[pair[0]].values())
         set2 = list(sets[pair[1]].values())
