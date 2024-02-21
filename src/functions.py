@@ -208,17 +208,17 @@ def t_test(sets, path):
 def cal_stat(comparison):
     for model in comparison.keys():
         path = '/'.join(['output', model])
-        path_stat = '/'.join(['output', model, 'statistics'])
         col_names = [x for x in comparison[model].keys() if x != 'chapter']
         stat = pd.DataFrame(columns=col_names)
-        if not os.path.exists(path_stat):
-            os.makedirs(path_stat)
         for div in comparison[model].keys():
             if div == 'chapter':
                 continue
+            path_stat = '/'.join([path, div, 'statistics'])
+            if not os.path.exists(path_stat):
+                os.makedirs(path_stat)
+            t_test(comparison[model][div], path_stat)
             for comp, values in comparison[model][div].items():
                 stat.loc[comp, div] = mean(values.values())
-                t_test(comparison[model][div], path_stat)
 
                 # create a histogram
                 hist_name = '/'.join([path, div, comp]) + '/hist.png'
@@ -229,5 +229,5 @@ def cal_stat(comparison):
                 plt.close()
 
         # export the statistic table.
-        avg_name = '/'.join([path_stat, 'average.tsv'])
+        avg_name = '/'.join([path, 'average.tsv'])
         stat.to_csv(avg_name, sep='\t')
