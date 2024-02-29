@@ -42,7 +42,6 @@ def load_training_dataset(config):
             except FileNotFoundError:
                 print('No such file or directory')
                 file_ext = f + '.conllu_parsed'
-                # data = open(file_ext, mode='r', encoding='utf-8')
         sentences = conllu.parse(data.read())
         for sentence in sentences:
             s = []
@@ -106,7 +105,6 @@ def create_embeddings(config, w2v_model):
     # load files names to be processed.
     file_path = {}
     for key in config['evaluation']:
-        # print(key)
         file_path[key] = []
         for root, dirs, files in os.walk(config['evaluation'][key]):
             for file in files:
@@ -148,7 +146,6 @@ def export_similarity_dataset(comparison, model, div, comparison_name):
     return folder_path, df_pivot
 
 def generate_heatmap(folder_path, df_pivot):
-    # fig = plt.figure()
     figure_path = '/'.join([folder_path, 'heatmap.png'])
     ax = sns.heatmap(df_pivot)
     ax.figure.tight_layout()

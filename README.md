@@ -1,7 +1,7 @@
 # Amano2
 ## Training Corpus
 - Training Corpus is Dr. [Oliver Hellwig's Sanskrit corpus](https://github.com/OliverHellwig/sanskrit/tree/master/dcs/data/conllu/files).
-- Upon training, the documents used for evaluation (viz., MS, KS and TS) are excluced.
+- Upon training, the documents used for evaluation (viz., MS and KS) are excluced.
 
 ## Models
 ### Word2Vec
@@ -30,7 +30,7 @@ The evaluation dataset is devided with the following units:
 2. MS.1.6 vs. MS.1.7 
 3. MS.1.6 vs. KS.8 
 4. MS.1.7 vs. KS.9.1
+5. MS.1.9 vs. KS.9.11
 
 ## TODO
 - adding statistics like avg. tokens/sentence, distribution of words, etc.
-- calculate the means of coscine similarity.
